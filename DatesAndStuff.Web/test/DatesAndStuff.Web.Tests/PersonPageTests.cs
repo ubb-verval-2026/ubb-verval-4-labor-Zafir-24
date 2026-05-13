@@ -98,28 +98,116 @@ public class PersonPageTests
     }
 
     [Test]
-    public void Person_SalaryIncrease_ShouldIncrease()
+    [TestCase(-10, 4500)]
+    [TestCase(0, 5000)]
+    [TestCase(0.5, 5025)]
+    [TestCase(5, 5250)]
+    [TestCase(10, 5500)]
+    [TestCase(100, 10000)]
+    //NEM MEGY EGYIK SE SIMA WAIT.UNTILL VISIBLE VAGY CLICKABLE
+    public void Person_SalaryIncrease_ShouldIncrease(double percentage, double expectedSalary)
     {
         // Arrange
         driver.Navigate().GoToUrl(BaseURL);
-        driver.FindElement(By.XPath("//*[@data-test='PersonPageNavigation']")).Click();
+        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
 
-        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
+        var navButton = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//*[@data-test='PersonPageNavigation']")));
+        navButton.Click();
 
-        var input = wait.Until(ExpectedConditions.ElementExists(By.XPath("//*[@data-test='SalaryIncreasePercentageInput']")));
-        input.Clear();
-        input.SendKeys("5");
+        wait.Until(d => {
+            try
+            {
+                var input = d.FindElement(By.XPath("//*[@data-test='SalaryIncreasePercentageInput']"));
+                if (!input.Displayed){ 
+                    return false;
+                }
+                input.Clear();
+                input.SendKeys(percentage.ToString());
+                return true;
+            }
+            catch (StaleElementReferenceException)
+            {
+                return false;
+            }
+        });
+
 
         // Act
-        var submitButton = wait.Until(ExpectedConditions.ElementExists(By.XPath("//*[@data-test='SalaryIncreaseSubmitButton']")));
+        var submitButton = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//*[@data-test='SalaryIncreaseSubmitButton']")));
         submitButton.Click();
 
 
         // Assert
-        var salaryLabel = wait.Until(ExpectedConditions.ElementExists(By.XPath("//*[@data-test='DisplayedSalary']")));
+        wait.Until(d => {
+            var label = d.FindElement(By.XPath("//*[@data-test='DisplayedSalary']"));
+            if (string.IsNullOrEmpty(label.Text)) { 
+                return false;
+            }
+            return true;
+        });
+
+        var salaryLabel = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//*[@data-test='DisplayedSalary']")));
         var salaryAfterSubmission = double.Parse(salaryLabel.Text);
-        salaryAfterSubmission.Should().BeApproximately(5250, 0.001);
+        salaryAfterSubmission.Should().BeApproximately(expectedSalary, 0.001);
     }
+
+    [Test]
+    [TestCase(-11)]
+    [TestCase(-50)]
+    [TestCase(-100)]
+    [TestCase(-1000)]
+    public void Person_SalaryIncrease_BelowMinusTen_ShouldShowValidationMessages(double percentage)
+    {
+        // Arrange
+        driver.Navigate().GoToUrl(BaseURL);
+
+        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+
+        var navButton = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//*[@data-test='PersonPageNavigation']")));
+        navButton.Click();
+
+        wait.Until(d => {
+            try
+            {
+                var input = d.FindElement(By.XPath("//*[@data-test='SalaryIncreasePercentageInput']"));
+                if (!input.Displayed)
+                {
+                    return false;
+                }
+                input.Clear();
+                input.SendKeys(percentage.ToString());
+                return input.GetAttribute("value") == percentage.ToString();
+            }
+            catch (NoSuchElementException) {
+                return false;
+            }
+            catch (StaleElementReferenceException) { 
+                return false; 
+            }
+        });
+
+
+        // Act
+        var submitButton = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//*[@data-test='SalaryIncreaseSubmitButton']")));
+        submitButton.Click();
+
+        wait.Until(d => {
+            try
+            {
+                var messages = d.FindElements(By.ClassName("validation-message"));
+                return messages.Count == 2 && messages.All(m => !string.IsNullOrWhiteSpace(m.Text));
+            }
+            catch (StaleElementReferenceException) {
+                return false;
+            }
+        });
+
+        var errorMessages = driver.FindElements(By.ClassName("validation-message"));
+        errorMessages.Should().HaveCount(2);
+        foreach (var error in errorMessages)
+            error.Text.Should().Be("The specified percentag should be between -10 and infinity.");
+    }
+
     private bool IsElementPresent(By by)
     {
         try
