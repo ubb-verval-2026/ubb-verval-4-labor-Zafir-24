@@ -133,9 +133,32 @@ namespace Flight.Web.Tests
             });
 
             chooseButtons.Count.Should().BeGreaterThanOrEqualTo(3);
+
+            var priceTags = driver.FindElements(By.XPath("//table[@class='table']/tbody/tr/td[6]"));
+            bool cheapFlightFound = false;
+
+			double priceMax = 300.0;
+
+            foreach (var priceTag in priceTags)
+            {
+                var price = double.Parse(priceTag.Text.Trim().Replace("$", ""), System.Globalization.CultureInfo.InvariantCulture);
+                if (price < priceMax)
+                {
+                    cheapFlightFound = true;
+                    break;
+                }
+            }
+
+            if (cheapFlightFound)
+            {
+                var screenshot = ((ITakesScreenshot)driver).GetScreenshot();
+                var filePath = @"D:\School\6th_Semester\VerVal\lab4\img\asd.png";
+                screenshot.SaveAsFile(filePath);
+            }
+
         }
 
-		private bool IsElementPresent(By by)
+        private bool IsElementPresent(By by)
 		{
 			try
 			{
