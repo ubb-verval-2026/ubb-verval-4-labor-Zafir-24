@@ -98,6 +98,7 @@ public class PersonPageTests
     }
 
     [Test]
+    [TestCase(-10, 4500)]
     [TestCase(0, 5000)]
     [TestCase(0.5, 5025)]
     [TestCase(5, 5250)]
